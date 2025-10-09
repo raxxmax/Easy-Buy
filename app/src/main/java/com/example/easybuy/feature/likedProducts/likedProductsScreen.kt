@@ -20,18 +20,45 @@ import com.example.easybuy.feature.home.ProductCard
 
 @Composable
 fun FavouritesScreen(navController: NavController) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Favourites",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
 
-        Spacer(modifier = Modifier.height(16.dp))
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                            text = "❤️ Favourites",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 22.sp
+                        ) }
+                        ,
+                navigationIcon = {
+                        IconButton(onClick = {navController.popBackStack()}) {
+                            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "BAck button" ,
+                                tint = Color.White)
+                        }
+
+
+
+                } ,  colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent ,
+                    titleContentColor = Color.White
+                )
+                ,
+                modifier = Modifier.background(
+                    Brush.horizontalGradient(
+                       themecolors
+                    )
+                )
+            )
+        },
+
+    ){ paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color.LightGray)
+        ) {
 
 
         LazyVerticalGrid(
