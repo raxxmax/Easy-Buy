@@ -1,5 +1,6 @@
 package com.example.easybuy.feature.conclusion
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -34,25 +37,33 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
+import com.example.easybuy.R
+import com.example.easybuy.navigation.NavigationRoutes
 
 @OptIn(ExperimentalMaterial3Api::class)
 // Color Theme
@@ -63,37 +74,72 @@ val PrimaryOrange = Color(0xFFE7AD60)
 val PrimaryCyan = Color(0xFF35B5C4)
 val PrimaryBlue = Color(0xFF304AD9)
 
-@OptIn(ExperimentalMaterial3Api::class)
-
-
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun ProfileScreen(navController: NavController) {
+    val viewModel: ProfileScreenViewModel = hiltViewModel()
+    val uiState = viewModel.uiState.collectAsState()
+    val user = viewModel.user.collectAsState()
+    val context = LocalContext.current
 
-        var isEditing by remember { mutableStateOf(false) }
-        var name by remember { mutableStateOf("Your Name") }
-        var email by remember { mutableStateOf("test@example.com") }
-        var phone by remember { mutableStateOf("888-888-8888") }
-        var location by remember { mutableStateOf("San Francisco") }
-        var bio by remember { mutableStateOf("Write your bio here") }
+    var isEditing by remember { mutableStateOf(false) }
 
-        var tempName by remember { mutableStateOf(name) }
-        var tempEmail by remember { mutableStateOf(email) }
-        var tempPhone by remember { mutableStateOf(phone) }
-        var tempLocation by remember { mutableStateOf(location) }
-        var tempBio by remember { mutableStateOf(bio) }
+    // Initialize with actual user data
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
+    var bio by remember { mutableStateOf("") }
 
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Profile", fontSize = 24.sp, fontWeight = FontWeight.SemiBold) },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = SurfaceDark,
-                        titleContentColor = Color.White
-                    )
+    var tempName by remember { mutableStateOf("") }
+    var tempEmail by remember { mutableStateOf("") }
+    var tempPhone by remember { mutableStateOf("") }
+    var tempLocation by remember { mutableStateOf("") }
+    var tempBio by remember { mutableStateOf("") }
+
+    // Update local state when user data changes
+    LaunchedEffect(user.value) {
+        user.value?.let { currentUser ->
+            name =
+                currentUser.displayName.ifEmpty { "${currentUser.firstName} ${currentUser.lastName}".trim() }
+            email = currentUser.email
+            phone = currentUser.phoneNumber
+            location = currentUser.location
+            bio = currentUser.bio.ifEmpty { "Write your bio here" }
+        }
+    }
+
+    // Handle UI state changes
+    LaunchedEffect(uiState.value) {
+        when (val state = uiState.value) {
+            is ProfileUiState.Error -> {
+                Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                viewModel.resetState()
+            }
+
+            is ProfileUiState.SignedOut -> {
+                navController.navigate(NavigationRoutes.SIGNIN) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+
+            else -> {}
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Profile", fontSize = 24.sp, fontWeight = FontWeight.SemiBold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = SurfaceDark,
+                    titleContentColor = Color.White
                 )
-            },
-            containerColor = BackgroundDark
-        ) { padding ->
+            )
+        },
+        containerColor = BackgroundDark
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -129,24 +175,40 @@ fun ProfileScreen(navController: NavController) {
                                 .offset(y = (-48).dp)
                         ) {
                             Box {
-                                Box(
-                                    modifier = Modifier
-                                        .size(96.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF2A2A2A)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Profile",
-                                        modifier = Modifier.size(48.dp),
-                                        tint = Color.Gray
+                                val profilePictureUrl = user.value?.profilePictureUrl
+                                if (!profilePictureUrl.isNullOrEmpty()) {
+                                    // Load profile picture from URL (Google profile pic)
+                                    AsyncImage(
+                                        model = profilePictureUrl,
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier
+                                            .size(96.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Crop,
+                                        error = painterResource(R.drawable.ic_person_placeholder),
+                                        fallback = painterResource(R.drawable.ic_person_placeholder)
                                     )
+                                } else {
+                                    // Default profile picture
+                                    Box(
+                                        modifier = Modifier
+                                            .size(96.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF2A2A2A)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Profile",
+                                            modifier = Modifier.size(48.dp),
+                                            tint = Color.Gray
+                                        )
+                                    }
                                 }
 
                                 // Camera Button
                                 IconButton(
-                                    onClick = { /* Handle photo change */ },
+                                    onClick = { /* TODO: Handle photo change */ },
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
                                         .size(32.dp)
@@ -192,7 +254,7 @@ fun ProfileScreen(navController: NavController) {
                                     )
                                 } else {
                                     Text(
-                                        text = name,
+                                        text = name.ifEmpty { "User" },
                                         fontSize = 28.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,
@@ -250,11 +312,19 @@ fun ProfileScreen(navController: NavController) {
 
                                         Button(
                                             onClick = {
-                                                name = tempName
-                                                email = tempEmail
-                                                phone = tempPhone
-                                                location = tempLocation
-                                                bio = tempBio
+                                                // Update profile through ViewModel
+                                                val nameParts = tempName.split(" ", limit = 2)
+                                                val firstName = nameParts.getOrElse(0) { "" }
+                                                val lastName = nameParts.getOrElse(1) { "" }
+
+                                                viewModel.updateProfile(
+                                                    displayName = tempName,
+                                                    firstName = firstName,
+                                                    lastName = lastName,
+                                                    bio = tempBio,
+                                                    location = tempLocation,
+                                                    phoneNumber = tempPhone
+                                                )
                                                 isEditing = false
                                             },
                                             colors = ButtonDefaults.buttonColors(
@@ -306,7 +376,7 @@ fun ProfileScreen(navController: NavController) {
                             ProfileInfoItem(
                                 icon = Icons.Default.Email,
                                 value = if (isEditing) tempEmail else email,
-                                isEditing = isEditing,
+                                isEditing = false, // Email shouldn't be editable
                                 onValueChange = { tempEmail = it }
                             )
 
@@ -354,7 +424,7 @@ fun ProfileScreen(navController: NavController) {
                     MenuButton(
                         icon = Icons.Default.Settings,
                         label = "Account Settings",
-                        onClick = { /* Handle settings */ }
+                        onClick = { navController.navigate(NavigationRoutes.SETTINGS) }
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -362,105 +432,121 @@ fun ProfileScreen(navController: NavController) {
                     MenuButton(
                         icon = Icons.Default.Logout,
                         label = "Log Out",
-                        onClick = { /* Handle logout */ },
+                        onClick = { viewModel.signOut() },
                         textColor = Color(0xFFEF4444)
                     )
 
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }
+
+            // Loading overlay
+            if (uiState.value == ProfileUiState.Loading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = PrimaryOrange,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
         }
     }
+}
 
-    @Composable
-    fun ProfileInfoItem(
-        icon: ImageVector,
-        value: String,
-        isEditing: Boolean,
-        onValueChange: (String) -> Unit
+@Composable
+fun ProfileInfoItem(
+    icon: ImageVector,
+    value: String,
+    isEditing: Boolean,
+    onValueChange: (String) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = PrimaryOrange,
+            modifier = Modifier.size(20.dp)
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        if (isEditing) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryOrange,
+                    unfocusedBorderColor = BorderDark,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                singleLine = true
+            )
+        } else {
+            Text(
+                text = value.ifEmpty { "Not provided" },
+                fontSize = 15.sp,
+                color = if (value.isEmpty()) Color.Gray else Color.White
+            )
+        }
+    }
+}
+
+@Composable
+fun MenuButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    textColor: Color = Color.White
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = PrimaryOrange,
-                modifier = Modifier.size(20.dp)
+                tint = textColor,
+                modifier = Modifier.size(24.dp)
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-            if (isEditing) {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryOrange,
-                        unfocusedBorderColor = BorderDark,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    singleLine = true
-                )
-            } else {
-                Text(
-                    text = value,
-                    fontSize = 15.sp,
-                    color = Color.White
-                )
-            }
+            Text(
+                text = label,
+                fontSize = 16.sp,
+                color = textColor,
+                modifier = Modifier.weight(1f)
+            )
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Navigate",
+                tint = Color.Gray,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
-
-    @Composable
-    fun MenuButton(
-        icon: ImageVector,
-        label: String,
-        onClick: () -> Unit,
-        textColor: Color = Color.White
-    ) {
-        Card(
-            onClick = onClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceDark)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = textColor,
-                    modifier = Modifier.size(24.dp)
-                )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Text(
-                    text = label,
-                    fontSize = 16.sp,
-                    color = textColor,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Navigate",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
+}
 
 @Preview(showSystemUi = true)
 @Composable

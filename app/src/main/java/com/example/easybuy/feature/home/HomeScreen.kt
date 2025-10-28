@@ -51,6 +51,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.easybuy.feature.Auth.signup.SignUpScreen
 import com.example.easybuy.R
+import com.example.easybuy.navigation.NavigationRoutes
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -407,9 +408,9 @@ fun RadialMenuScreen(modifier: Modifier = Modifier, navController: NavController
             data class MenuItem(val emoji: String, val route: String, val label: String)
 
             val menuItems = listOf(
-                MenuItem("❤️", "favorites", "Favorites"),  // ❤️ → FavoritesScreen
-                MenuItem("👤", "profile", "Profile"),      // 👤 → ProfileScreen
-                MenuItem("⚙️", "settings", "Settings")     // ⚙️ → SettingsScreen
+                MenuItem("❤️", NavigationRoutes.FAVORITES, "Favorites"),  // ❤️ → FavoritesScreen
+                MenuItem("👤", NavigationRoutes.PROFILE, "Profile"),      // 👤 → ProfileScreen
+                MenuItem("⚙️", NavigationRoutes.SETTINGS, "Settings")     // ⚙️ → SettingsScreen
             )
 
             // 🔹 Loop to create circular menu items with individual navigation

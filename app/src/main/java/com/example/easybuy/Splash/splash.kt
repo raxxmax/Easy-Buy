@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.delay
+import com.example.easybuy.navigation.NavigationRoutes
 
 @Composable
 fun SplashScreen(navController: NavController) {
@@ -62,8 +63,8 @@ fun SplashScreen(navController: NavController) {
     LaunchedEffect(key1 = true) {
         startAnimation = true
         delay(2100) // Show splash for 2.1 seconds
-        navController.navigate("signin") {
-            popUpTo("splash") { inclusive = true }
+        navController.navigate(NavigationRoutes.SIGNIN) {
+            popUpTo(NavigationRoutes.SPLASH) { inclusive = true }
         }
     }
 

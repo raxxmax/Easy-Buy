@@ -66,6 +66,9 @@ dependencies {
     // --- Placeholder / Shimmer ---
     implementation("com.google.accompanist:accompanist-placeholder-material:0.30.1")
 
+    // --- Image Loading ---
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
     // --- Hilt ---
     implementation("com.google.dagger:hilt-android:2.48")
     kapt("com.google.dagger:hilt-compiler:2.48")

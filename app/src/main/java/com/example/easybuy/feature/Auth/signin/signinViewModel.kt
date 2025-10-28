@@ -2,6 +2,7 @@ package com.example.easybuy.feature.Auth.signin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.easybuy.data.repository.UserRepository
 import com.example.easybuy.feature.Auth.SigninWithAnIntent
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,7 +13,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SignInViewmodel @Inject constructor(
-    private val googleAuthClient: SigninWithAnIntent
+    private val googleAuthClient: SigninWithAnIntent,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<SignInState>(SignInState.Nothing)
@@ -52,7 +54,16 @@ class SignInViewmodel @Inject constructor(
                     if (task.isSuccessful) {
                         val user = task.result.user
                         if (user != null) {
-                            _state.value = SignInState.Success
+                            // Create/update user profile in Firestore
+                            viewModelScope.launch {
+                                val result = userRepository.createOrUpdateUserFromFirebaseAuth(user)
+                                if (result.isSuccess) {
+                                    _state.value = SignInState.Success
+                                } else {
+                                    _state.value =
+                                        SignInState.Error("Failed to create user profile")
+                                }
+                            }
                         } else {
                             _state.value = SignInState.Error("Authentication failed")
                         }
@@ -88,7 +99,20 @@ class SignInViewmodel @Inject constructor(
                 val result = googleAuthClient.getSigInResultFromIntent(intent)
                 when {
                     result.data != null -> {
-                        _state.value = SignInState.Success
+                        // Get the Firebase user and create/update profile
+                        val firebaseUser = auth.currentUser
+                        if (firebaseUser != null) {
+                            val userResult =
+                                userRepository.createOrUpdateUserFromFirebaseAuth(firebaseUser)
+                            if (userResult.isSuccess) {
+                                _state.value = SignInState.Success
+                            } else {
+                                _state.value = SignInState.Error("Failed to create user profile")
+                            }
+                        } else {
+                            _state.value =
+                                SignInState.Error("Firebase user not found after Google Sign-In")
+                        }
                     }
 
                     !result.errorMessage.isNullOrEmpty() -> {

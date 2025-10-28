@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.easybuy.R
+import com.example.easybuy.navigation.NavigationRoutes
 
 @Composable
 fun SignInScreen(navController: NavController) {
@@ -64,8 +65,8 @@ fun SignInScreen(navController: NavController) {
     LaunchedEffect(key1 = uiState.value) {
         when (val state = uiState.value) {
             is SignInState.Success -> {
-                navController.navigate("home") {
-                    popUpTo("signin") { inclusive = true }
+                navController.navigate(NavigationRoutes.HOME) {
+                    popUpTo(NavigationRoutes.SIGNIN) { inclusive = true }
                 }
             }
 
@@ -330,7 +331,7 @@ fun SignInScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(124.dp))
 
             TextButton(
-                onClick = { navController.navigate("signup") },
+                onClick = { navController.navigate(NavigationRoutes.SIGNUP) },
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Text(
