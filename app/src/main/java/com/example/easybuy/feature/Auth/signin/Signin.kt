@@ -1,15 +1,15 @@
 package com.example.easybuy.feature.Auth.signin
 
-import android.R.attr.fontWeight
-import android.R.attr.text
-import android.R.attr.textStyle
+import android.app.Activity
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
@@ -18,8 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -30,18 +29,67 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.easybuy.R
-import com.example.easybuy.feature.Auth.signup.SignUpScreen
-
 
 @Composable
-fun SignInScreen(navController :NavController) {
+fun SignInScreen(navController: NavController) {
+
+    val viewModel: SignInViewmodel = hiltViewModel()
+    val uiState = viewModel.state.collectAsState()
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var rememberMe by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+
+    // Google Sign-In launcher
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.let { intent ->
+                viewModel.handleGoogleSignInResult(intent)
+            }
+        } else {
+            viewModel.resetState()
+            Toast.makeText(context, "Google Sign-In cancelled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(key1 = uiState.value) {
+        when (val state = uiState.value) {
+            is SignInState.Success -> {
+                navController.navigate("home") {
+                    popUpTo("signin") { inclusive = true }
+                }
+            }
+
+            is SignInState.Error -> {
+                Toast.makeText(
+                    context,
+                    state.message,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            is SignInState.GoogleSignInIntentReady -> {
+                try {
+                    val intentSenderRequest = IntentSenderRequest.Builder(state.intentSender).build()
+                    googleSignInLauncher.launch(intentSenderRequest)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Failed to launch Google Sign-In", Toast.LENGTH_SHORT).show()
+                    viewModel.resetState()
+                }
+            }
+
+            else -> {}
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -63,8 +111,8 @@ fun SignInScreen(navController :NavController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Title
             Spacer(modifier = Modifier.height(88.dp))
+
             Text(
                 text = "Welcome Back",
                 fontSize = 32.sp,
@@ -82,7 +130,6 @@ fun SignInScreen(navController :NavController) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Card with form
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -97,7 +144,6 @@ fun SignInScreen(navController :NavController) {
                         .fillMaxWidth()
                         .padding(24.dp)
                 ) {
-                    // Email field
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
@@ -106,7 +152,7 @@ fun SignInScreen(navController :NavController) {
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Email,
-                                contentDescription = "Email" ,
+                                contentDescription = "Email",
                                 tint = Color.Black
                             )
                         },
@@ -117,7 +163,7 @@ fun SignInScreen(navController :NavController) {
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color(0xFF1B1C1F),      // when typing
+                            focusedTextColor = Color(0xFF1B1C1F),
                             unfocusedTextColor = Color(0xFF212228),
                             focusedContainerColor = Color(0x28DDE2E7),
                             unfocusedContainerColor = Color(0x08F9FFFF),
@@ -130,7 +176,6 @@ fun SignInScreen(navController :NavController) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Password field
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
@@ -147,17 +192,15 @@ fun SignInScreen(navController :NavController) {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
                                     painter = painterResource(
-                                        id = if (passwordVisible) com.example.easybuy.R.drawable.show
-                                        else
-                                            R.drawable.closed ,
-                                        )   ,
+                                        id = if (passwordVisible) R.drawable.show
+                                        else R.drawable.closed
+                                    ),
                                     contentDescription = if (passwordVisible)
                                         "Hide password"
                                     else
-                                        "Show password" ,
+                                        "Show password",
                                     tint = Color(0xFF010A11)
                                 )
-
                             }
                         },
                         visualTransformation = if (passwordVisible)
@@ -171,7 +214,7 @@ fun SignInScreen(navController :NavController) {
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color(0xFF1B1C1F),      // when typing
+                            focusedTextColor = Color(0xFF1B1C1F),
                             unfocusedTextColor = Color(0xFF212228),
                             focusedContainerColor = Color(0x0CE9ECEF),
                             unfocusedContainerColor = Color(0x08F9FFFF),
@@ -184,22 +227,19 @@ fun SignInScreen(navController :NavController) {
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Remember me and forgot password
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
                                 checked = rememberMe,
                                 onCheckedChange = { rememberMe = it }
                             )
                             Text(
                                 text = "Remember me",
-                                fontSize = 14.sp ,
+                                fontSize = 14.sp,
                                 color = Color.DarkGray
                             )
                         }
@@ -214,9 +254,9 @@ fun SignInScreen(navController :NavController) {
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Sign in button
+                    // Sign in button with loading state
                     Button(
-                        onClick = { /* Handle sign in */ },
+                        onClick = { viewModel.SignIn(email, password) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -224,19 +264,27 @@ fun SignInScreen(navController :NavController) {
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF6366F1)
                         ),
-                        enabled = email.isNotEmpty() && password.isNotEmpty()
+                        enabled = email.isNotEmpty() && password.isNotEmpty() &&
+                                (uiState.value == SignInState.Nothing || uiState.value is SignInState.Error)
                     ) {
-                        Text(
-                            text = "Sign In",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold ,
-                            color = Color.DarkGray
-                        )
+                        if (uiState.value == SignInState.Loading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = "Sign In",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Divider with "OR"
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -255,41 +303,47 @@ fun SignInScreen(navController :NavController) {
 
                     // Google sign in button
                     OutlinedButton(
-                        onClick = { /* Handle Google sign in */ },
+                        onClick = { viewModel.signInWithGoogle() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = uiState.value != SignInState.Loading
                     ) {
-                        Text(
-                            text = "Continue with Google",
-                            fontSize = 16.sp
-                        )
+                        if (uiState.value == SignInState.Loading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF6366F1),
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = "Continue with Google",
+                                fontSize = 16.sp,
+                                color = Color.DarkGray
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(124.dp))
 
-            // Sign up link
-
-
-                TextButton(
-                    onClick = { navController.navigate("signup")},
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text(
-                        text = "Don't have an account? Sign Up",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold ,
-                        fontSize = 16.sp,
-                        style = TextStyle(textDecoration = TextDecoration.Underline)
-
-                    )
-                }
+            TextButton(
+                onClick = { navController.navigate("signup") },
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text(
+                    text = "Don't have an account? Sign Up",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    style = TextStyle(textDecoration = TextDecoration.Underline)
+                )
             }
         }
     }
+}
 
 @Preview(showSystemUi = true)
 @Composable

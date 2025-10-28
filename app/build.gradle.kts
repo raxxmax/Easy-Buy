@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.dagger.hilt.android")
+    kotlin("kapt")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -65,6 +68,7 @@ dependencies {
 
     // --- Hilt ---
     implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
     // --- Firebase (use BoM to manage all versions) ---
@@ -73,7 +77,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
-
+    implementation(libs.play.services.auth)
 
 
     // --- Testing ---

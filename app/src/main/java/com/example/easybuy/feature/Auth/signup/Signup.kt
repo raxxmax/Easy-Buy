@@ -1,10 +1,10 @@
 package com.example.easybuy.feature.Auth.signup
 
-
-import android.R.attr.fontWeight
-import android.R.attr.name
-import android.R.attr.text
-import android.R.attr.textStyle
+import android.app.Activity
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -30,25 +31,68 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.easybuy.R
 
-
 @Composable
-fun SignUpScreen(navController :NavController) {
+fun SignUpScreen(navController: NavController) {
+    val viewModel: SignUpViewModel = hiltViewModel()
+    val uiState = viewModel.state.collectAsState()
+
     val isDarktheme = isSystemInDarkTheme()
-
-   val textColor = if(isDarktheme) Color.White else Color.Black
+    val textColor = if (isDarktheme) Color.White else Color.Black
     val iconColor = if(isDarktheme) Color.White else Color.Black
-
-
+    val context = LocalContext.current
 
     var email by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf("") }
+
+    // Google Sign-Up launcher
+    val googleSignUpLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.let { intent ->
+                viewModel.handleGoogleSignUpResult(intent)
+            }
+        } else {
+            viewModel.resetState()
+            Toast.makeText(context, "Google Sign-Up cancelled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(key1 = uiState.value) {
+        when (val state = uiState.value) {
+            is SignUpState.Success -> {
+                navController.navigate("home") {
+                    popUpTo("signup") { inclusive = true }
+                }
+            }
+
+            is SignUpState.Error -> {
+                Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+            }
+
+            is SignUpState.GoogleSignUpIntentReady -> {
+                try {
+                    val intentSenderRequest =
+                        IntentSenderRequest.Builder(state.intentSender).build()
+                    googleSignUpLauncher.launch(intentSenderRequest)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Failed to launch Google Sign-Up", Toast.LENGTH_SHORT)
+                        .show()
+                    viewModel.resetState()
+                }
+            }
+
+            else -> {}
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -133,7 +177,7 @@ fun SignUpScreen(navController :NavController) {
                             focusedLabelColor = Color.Black,
                             unfocusedLabelColor = Color.Gray
                         )
-                        )
+                    )
 
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -186,10 +230,11 @@ fun SignUpScreen(navController :NavController) {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
                                     painter = painterResource(
-                                   id = if (passwordVisible) R.drawable.show
-                                    else
-                                       R.drawable.closed)   ,
-                                            contentDescription = if (passwordVisible)
+                                        id = if (passwordVisible) R.drawable.show
+                                        else
+                                            R.drawable.closed
+                                    ),
+                                    contentDescription = if (passwordVisible)
                                         "Hide password"
                                     else
                                         "Show password" ,
@@ -274,29 +319,42 @@ fun SignUpScreen(navController :NavController) {
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-
-
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Sign Up button
                     Button(
-                        onClick = {navController.navigate("home") },
+                        onClick = {
+                            viewModel.signUp(
+                                email = email,
+                                password = password,
+                                confirmPassword = confirm
+                            )
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF6366F1) ),
-                            enabled = name.isNotEmpty() && email.isNotEmpty() &&
-                                    password.isNotEmpty() && confirm.isNotEmpty() && (password == confirm)
-                        )
-                     {
-                        Text(
-                            text = "Sign up",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold ,
-                            color = Color.DarkGray
-                        )
+                        enabled = name.isNotEmpty() && email.isNotEmpty() &&
+                                password.isNotEmpty() && confirm.isNotEmpty() && (password == confirm) &&
+                                (uiState.value == SignUpState.Nothing || uiState.value is SignUpState.Error)
+                    )
+                    {
+                        if (uiState.value == SignUpState.Loading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = "Sign up",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -320,16 +378,26 @@ fun SignUpScreen(navController :NavController) {
 
                     // Google sign in button
                     OutlinedButton(
-                        onClick = { /* Handle Google sign in */ },
+                        onClick = { viewModel.signUpWithGoogle() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = uiState.value != SignUpState.Loading
                     ) {
-                        Text(
-                            text = "Continue with Google",
-                            fontSize = 16.sp
-                        )
+                        if (uiState.value == SignUpState.Loading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF6366F1),
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = "Continue with Google",
+                                fontSize = 16.sp,
+                                color = Color.DarkGray
+                            )
+                        }
                     }
                 }
             }

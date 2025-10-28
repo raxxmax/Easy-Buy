@@ -111,7 +111,7 @@ fun HomeScreen(navController :NavController) {
         bottomBar = {
             BottomNavigationBar(
                 selectedTab = selectedTab,
-                onTabSelected = { selectedTab  } ,
+                onTabSelected = { selectedTab = it },
                 navController = navController
             )
         }
@@ -278,8 +278,14 @@ public fun ProductCard() {
                                 Color(0xFFF3F4F6),
                                 Color(0xFFE5E7EB)
                             ),
-                            start = androidx.compose.ui.geometry.Offset(shimmerTranslate - 200f, shimmerTranslate - 200f),
-                            end = androidx.compose.ui.geometry.Offset(shimmerTranslate, shimmerTranslate)
+                            start = androidx.compose.ui.geometry.Offset(
+                                shimmerTranslate - 200f,
+                                shimmerTranslate - 200f
+                            ),
+                            end = androidx.compose.ui.geometry.Offset(
+                                shimmerTranslate,
+                                shimmerTranslate
+                            )
                         )
                     ),
                 contentAlignment = Alignment.Center
@@ -309,8 +315,14 @@ public fun ProductCard() {
                                 Color(0xFFF3F4F6),
                                 Color(0xFFE5E7EB)
                             ),
-                            start = androidx.compose.ui.geometry.Offset(shimmerTranslate - 200f, shimmerTranslate - 200f),
-                            end = androidx.compose.ui.geometry.Offset(shimmerTranslate, shimmerTranslate)
+                            start = androidx.compose.ui.geometry.Offset(
+                                shimmerTranslate - 200f,
+                                shimmerTranslate - 200f
+                            ),
+                            end = androidx.compose.ui.geometry.Offset(
+                                shimmerTranslate,
+                                shimmerTranslate
+                            )
                         )
                     )
             )
@@ -330,8 +342,14 @@ public fun ProductCard() {
                                 Color(0xFFE5E7EB),
                                 Color(0xFFD1D5DB)
                             ),
-                            start = androidx.compose.ui.geometry.Offset(shimmerTranslate - 200f, shimmerTranslate - 200f),
-                            end = androidx.compose.ui.geometry.Offset(shimmerTranslate, shimmerTranslate)
+                            start = androidx.compose.ui.geometry.Offset(
+                                shimmerTranslate - 200f,
+                                shimmerTranslate - 200f
+                            ),
+                            end = androidx.compose.ui.geometry.Offset(
+                                shimmerTranslate,
+                                shimmerTranslate
+                            )
                         )
                     )
             )
@@ -351,7 +369,7 @@ public fun ProductCard() {
 @Composable
 fun BottomNavigationBar(
     selectedTab: Int,
-    onTabSelected: () -> Unit,
+    onTabSelected: (Int) -> Unit,
     navController: NavController
 ) {
     Box(
