@@ -93,8 +93,10 @@ class SignInViewmodel @Inject constructor(
     }
 
     fun handleGoogleSignInResult(intent: android.content.Intent) {
-        viewModelScope.launch {
-            _state.value = SignInState.Loading
+        // Cancel any ongoing sign-in operation
+        currentSignInJob?.cancel()
+
+        currentSignInJob = viewModelScope.launch {
             try {
                 val result = googleAuthClient.getSigInResultFromIntent(intent)
                 when {
