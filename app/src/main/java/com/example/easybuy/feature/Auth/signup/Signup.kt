@@ -36,6 +36,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.easybuy.R
 import com.example.easybuy.navigation.NavigationRoutes
+import kotlinx.coroutines.delay
 
 @Composable
 fun SignUpScreen(navController: NavController) {
@@ -70,13 +71,20 @@ fun SignUpScreen(navController: NavController) {
     LaunchedEffect(key1 = uiState.value) {
         when (val state = uiState.value) {
             is SignUpState.Success -> {
+                Toast.makeText(context, "Sign up successful!", Toast.LENGTH_SHORT).show()
                 navController.navigate(NavigationRoutes.HOME) {
                     popUpTo(NavigationRoutes.SIGNUP) { inclusive = true }
                 }
+                // Reset state after navigation
+                viewModel.resetState()
             }
 
             is SignUpState.Error -> {
-                Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, state.message, Toast.LENGTH_LONG)
+                    .show() // Changed to LONG for better visibility
+                // Auto-dismiss error state after showing toast
+                delay(100) // Small delay to ensure toast is shown
+                viewModel.resetState()
             }
 
             is SignUpState.GoogleSignUpIntentReady -> {
@@ -92,6 +100,12 @@ fun SignUpScreen(navController: NavController) {
             }
 
             else -> {}
+        }
+    }
+
+    LaunchedEffect(email, password, confirm, name) {
+        if (uiState.value is SignUpState.Error && (email.isNotEmpty() || password.isNotEmpty() || confirm.isNotEmpty() || name.isNotEmpty())) {
+            viewModel.resetState()
         }
     }
 
@@ -325,11 +339,13 @@ fun SignUpScreen(navController: NavController) {
                     // Sign Up button
                     Button(
                         onClick = {
-                            viewModel.signUp(
-                                email = email,
-                                password = password,
-                                confirmPassword = confirm
-                            )
+                            if (uiState.value != SignUpState.Loading) {
+                                viewModel.signUp(
+                                    email = email,
+                                    password = password,
+                                    confirmPassword = confirm
+                                )
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -339,15 +355,27 @@ fun SignUpScreen(navController: NavController) {
                             containerColor = Color(0xFF6366F1) ),
                         enabled = name.isNotEmpty() && email.isNotEmpty() &&
                                 password.isNotEmpty() && confirm.isNotEmpty() && (password == confirm) &&
-                                (uiState.value == SignUpState.Nothing || uiState.value is SignUpState.Error)
+                                uiState.value != SignUpState.Loading
                     )
                     {
                         if (uiState.value == SignUpState.Loading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Creating Account...",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
                         } else {
                             Text(
                                 text = "Sign up",
@@ -379,7 +407,11 @@ fun SignUpScreen(navController: NavController) {
 
                     // Google sign in button
                     OutlinedButton(
-                        onClick = { viewModel.signUpWithGoogle() },
+                        onClick = {
+                            if (uiState.value != SignUpState.Loading) {
+                                viewModel.signUpWithGoogle()
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -387,11 +419,22 @@ fun SignUpScreen(navController: NavController) {
                         enabled = uiState.value != SignUpState.Loading
                     ) {
                         if (uiState.value == SignUpState.Loading) {
-                            CircularProgressIndicator(
-                                color = Color(0xFF6366F1),
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFF6366F1),
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Connecting...",
+                                    fontSize = 16.sp,
+                                    color = Color.DarkGray
+                                )
+                            }
                         } else {
                             Text(
                                 text = "Continue with Google",

@@ -34,6 +34,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.easybuy.R
 import com.example.easybuy.navigation.NavigationRoutes
+import kotlinx.coroutines.delay
 
 @Composable
 fun SignInScreen(navController: NavController) {
@@ -65,17 +66,23 @@ fun SignInScreen(navController: NavController) {
     LaunchedEffect(key1 = uiState.value) {
         when (val state = uiState.value) {
             is SignInState.Success -> {
+                Toast.makeText(context, "Sign in successful!", Toast.LENGTH_SHORT).show()
                 navController.navigate(NavigationRoutes.HOME) {
                     popUpTo(NavigationRoutes.SIGNIN) { inclusive = true }
                 }
+                // Reset state after navigation
+                viewModel.resetState()
             }
 
             is SignInState.Error -> {
                 Toast.makeText(
                     context,
                     state.message,
-                    Toast.LENGTH_SHORT
+                    Toast.LENGTH_LONG // Changed to LONG for better visibility
                 ).show()
+                // Auto-dismiss error state after showing toast
+                delay(100) // Small delay to ensure toast is shown
+                viewModel.resetState()
             }
 
             is SignInState.GoogleSignInIntentReady -> {
@@ -89,6 +96,12 @@ fun SignInScreen(navController: NavController) {
             }
 
             else -> {}
+        }
+    }
+
+    LaunchedEffect(email, password) {
+        if (uiState.value is SignInState.Error && (email.isNotEmpty() || password.isNotEmpty())) {
+            viewModel.resetState()
         }
     }
 
@@ -257,7 +270,11 @@ fun SignInScreen(navController: NavController) {
 
                     // Sign in button with loading state
                     Button(
-                        onClick = { viewModel.SignIn(email, password) },
+                        onClick = {
+                            if (uiState.value != SignInState.Loading) {
+                                viewModel.SignIn(email, password)
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -265,15 +282,26 @@ fun SignInScreen(navController: NavController) {
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF6366F1)
                         ),
-                        enabled = email.isNotEmpty() && password.isNotEmpty() &&
-                                (uiState.value == SignInState.Nothing || uiState.value is SignInState.Error)
+                        enabled = email.isNotEmpty() && password.isNotEmpty() && uiState.value != SignInState.Loading
                     ) {
                         if (uiState.value == SignInState.Loading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Signing In...",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
                         } else {
                             Text(
                                 text = "Sign In",
@@ -304,7 +332,11 @@ fun SignInScreen(navController: NavController) {
 
                     // Google sign in button
                     OutlinedButton(
-                        onClick = { viewModel.signInWithGoogle() },
+                        onClick = {
+                            if (uiState.value != SignInState.Loading) {
+                                viewModel.signInWithGoogle()
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -312,11 +344,22 @@ fun SignInScreen(navController: NavController) {
                         enabled = uiState.value != SignInState.Loading
                     ) {
                         if (uiState.value == SignInState.Loading) {
-                            CircularProgressIndicator(
-                                color = Color(0xFF6366F1),
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFF6366F1),
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Connecting...",
+                                    fontSize = 16.sp,
+                                    color = Color.DarkGray
+                                )
+                            }
                         } else {
                             Text(
                                 text = "Continue with Google",

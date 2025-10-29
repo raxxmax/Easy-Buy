@@ -6,9 +6,13 @@ import com.example.easybuy.data.repository.UserRepository
 import com.example.easybuy.feature.Auth.SigninWithAnIntent
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,6 +25,7 @@ class SignInViewmodel @Inject constructor(
     val state = _state.asStateFlow()
 
     private val auth = FirebaseAuth.getInstance()
+    private var currentSignInJob: Job? = null
 
     init {
         // Check if user is already signed in
@@ -39,46 +44,51 @@ class SignInViewmodel @Inject constructor(
     }
 
     fun SignIn(email: String, password: String) {
-        viewModelScope.launch {
-            _state.value = SignInState.Loading
+        // Cancel any ongoing sign-in operation
+        currentSignInJob?.cancel()
 
-            // Basic validation
-            if (email.isEmpty() || password.isEmpty()) {
-                _state.value = SignInState.Error("All fields are required")
-                return@launch
-            }
+        currentSignInJob = viewModelScope.launch {
+            try {
+                _state.value = SignInState.Loading
 
-            // Firebase signin
-            auth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val user = task.result.user
-                        if (user != null) {
-                            // Create/update user profile in Firestore
-                            viewModelScope.launch {
-                                val result = userRepository.createOrUpdateUserFromFirebaseAuth(user)
-                                if (result.isSuccess) {
-                                    _state.value = SignInState.Success
-                                } else {
-                                    _state.value =
-                                        SignInState.Error("Failed to create user profile")
-                                }
-                            }
-                        } else {
-                            _state.value = SignInState.Error("Authentication failed")
-                        }
+                // Basic validation
+                if (email.isEmpty() || password.isEmpty()) {
+                    _state.value = SignInState.Error("All fields are required")
+                    return@launch
+                }
+
+                val authResult = withTimeout(20000) {
+                auth.signInWithEmailAndPassword(email, password).await()
+                }
+
+                val user = authResult.user
+                if (user != null) {
+                    val result = userRepository.createOrUpdateUserFromFirebaseAuth(user)
+                    if (result.isSuccess) {
+                        _state.value = SignInState.Success
                     } else {
                         _state.value =
-                            SignInState.Error(task.exception?.message ?: "Sign in failed")
+                            SignInState.Error("Failed to create user profile: ${result.exceptionOrNull()?.message}")
                     }
+                } else {
+                    _state.value = SignInState.Error("Authentication failed")
                 }
+            } catch (e: TimeoutCancellationException) {
+                _state.value =
+                    SignInState.Error("Sign in timed out. Please check your connection and try again.")
+            } catch (e: Exception) {
+                _state.value = SignInState.Error(e.message ?: "Sign in failed")
+            }
         }
     }
 
     fun signInWithGoogle() {
-        viewModelScope.launch {
-            _state.value = SignInState.Loading
+        // Cancel any ongoing sign-in operation
+        currentSignInJob?.cancel()
+
+        currentSignInJob = viewModelScope.launch {
             try {
+                _state.value = SignInState.Loading
                 val intentSender = googleAuthClient.signIn()
                 if (intentSender == null) {
                     _state.value = SignInState.Error("Failed to initiate Google Sign-In")
@@ -98,6 +108,7 @@ class SignInViewmodel @Inject constructor(
 
         currentSignInJob = viewModelScope.launch {
             try {
+                _state.value = SignInState.Loading
                 val result = googleAuthClient.getSigInResultFromIntent(intent)
                 when {
                     result.data != null -> {
@@ -107,9 +118,9 @@ class SignInViewmodel @Inject constructor(
                             val userResult =
                                 userRepository.createOrUpdateUserFromFirebaseAuth(firebaseUser)
                             if (userResult.isSuccess) {
-                                _state.value = SignInState.Success
-                            } else {
-                                _state.value = SignInState.Error("Failed to create user profile")
+                                _state.value = SignInState.Success } else {
+                                _state.value =
+                                    SignInState.Error("Failed to create user profile: ${userResult.exceptionOrNull()?.message}")
                             }
                         } else {
                             _state.value =
@@ -133,7 +144,13 @@ class SignInViewmodel @Inject constructor(
     }
 
     fun resetState() {
+        currentSignInJob?.cancel()
         _state.value = SignInState.Nothing
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        currentSignInJob?.cancel()
     }
 }
 

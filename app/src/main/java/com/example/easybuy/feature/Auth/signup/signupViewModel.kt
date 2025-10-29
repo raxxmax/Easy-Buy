@@ -6,9 +6,13 @@ import com.example.easybuy.data.repository.UserRepository
 import com.example.easybuy.feature.Auth.SigninWithAnIntent
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,58 +25,63 @@ class SignUpViewModel @Inject constructor(
     val state = _state.asStateFlow()
 
     private val auth = FirebaseAuth.getInstance()
+    private var currentSignUpJob: Job? = null
 
     fun signUp(email: String, password: String, confirmPassword: String) {
-        viewModelScope.launch {
-            _state.value = SignUpState.Loading
+        // Cancel any ongoing sign-up operation
+        currentSignUpJob?.cancel()
 
-            // Basic validation
-            if (email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
-                _state.value = SignUpState.Error("All fields are required")
-                return@launch
-            }
+        currentSignUpJob = viewModelScope.launch {
+            try {
+                _state.value = SignUpState.Loading
 
-            if (password != confirmPassword) {
-                _state.value = SignUpState.Error("Passwords do not match")
-                return@launch
-            }
+                // Basic validation
+                if (email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+                    _state.value = SignUpState.Error("All fields are required")
+                    return@launch
+                }
 
-            if (password.length < 6) {
-                _state.value = SignUpState.Error("Password must be at least 6 characters")
-                return@launch
-            }
+                if (password != confirmPassword) {
+                    _state.value = SignUpState.Error("Passwords do not match")
+                    return@launch
+                }
 
-            // Firebase signup
-            auth.createUserWithEmailAndPassword(email, password)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val user = task.result.user
-                        if (user != null) {
-                            // Create/update user profile in Firestore
-                            viewModelScope.launch {
-                                val result = userRepository.createOrUpdateUserFromFirebaseAuth(user)
-                                if (result.isSuccess) {
-                                    _state.value = SignUpState.Success
-                                } else {
-                                    _state.value =
-                                        SignUpState.Error("Failed to create user profile")
-                                }
-                            }
-                        } else {
-                            _state.value = SignUpState.Error("Sign up failed")
-                        }
+                if (password.length < 6) {
+                    _state.value = SignUpState.Error("Password must be at least 6 characters")
+                    return@launch
+                }
+
+                val authResult = withTimeout(20000) { // Increased timeout to 20 seconds
+                    auth.createUserWithEmailAndPassword(email, password).await()
+                }
+                val user = authResult.user
+                if (user != null) {
+                    val result = userRepository.createOrUpdateUserFromFirebaseAuth(user)
+                    if (result.isSuccess) {
+                        _state.value = SignUpState.Success
                     } else {
                         _state.value =
-                            SignUpState.Error(task.exception?.message ?: "Sign up failed")
+                            SignUpState.Error("Failed to create user profile: ${result.exceptionOrNull()?.message}")
                     }
+                } else {
+                    _state.value = SignUpState.Error("Sign up failed")
                 }
+            } catch (e: TimeoutCancellationException) {
+                _state.value =
+                    SignUpState.Error("Sign up timed out. Please check your connection and try again.")
+            } catch (e: Exception) {
+                _state.value = SignUpState.Error(e.message ?: "Sign up failed")
+            }
         }
     }
 
     fun signUpWithGoogle() {
-        viewModelScope.launch {
-            _state.value = SignUpState.Loading
+        // Cancel any ongoing sign-up operation
+        currentSignUpJob?.cancel()
+
+        currentSignUpJob = viewModelScope.launch {
             try {
+                _state.value = SignUpState.Loading
                 val intentSender = googleAuthClient.signIn()
                 if (intentSender == null) {
                     _state.value = SignUpState.Error("Failed to initiate Google Sign-Up")
@@ -87,9 +96,12 @@ class SignUpViewModel @Inject constructor(
     }
 
     fun handleGoogleSignUpResult(intent: android.content.Intent) {
-        viewModelScope.launch {
-            _state.value = SignUpState.Loading
+        // Cancel any ongoing sign-up operation
+        currentSignUpJob?.cancel()
+
+        currentSignUpJob = viewModelScope.launch {
             try {
+                _state.value = SignUpState.Loading
                 val result = googleAuthClient.getSigInResultFromIntent(intent)
                 when {
                     result.data != null -> {
@@ -101,7 +113,8 @@ class SignUpViewModel @Inject constructor(
                             if (userResult.isSuccess) {
                                 _state.value = SignUpState.Success
                             } else {
-                                _state.value = SignUpState.Error("Failed to create user profile")
+                                _state.value =
+                                    SignUpState.Error("Failed to create user profile: ${userResult.exceptionOrNull()?.message}")
                             }
                         } else {
                             _state.value =
@@ -125,7 +138,13 @@ class SignUpViewModel @Inject constructor(
     }
 
     fun resetState() {
+        currentSignUpJob?.cancel()
         _state.value = SignUpState.Nothing
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        currentSignUpJob?.cancel()
     }
 }
 
